@@ -68,6 +68,31 @@ class AuthService {
     await _auth.signOut();
   }
 
+  // Check if email already exists in Firebase
+  Future<bool> emailExists(String email) async {
+    try {
+      final normalizedEmail = email.trim().toLowerCase();
+      final methods = await _auth.fetchSignInMethodsForEmail(normalizedEmail);
+      final exists = methods.isNotEmpty;
+      print('Firebase email check: $normalizedEmail exists = $exists, methods = $methods');
+      return exists;
+    } on FirebaseAuthException catch (e) {
+      // If email doesn't exist, Firebase throws an exception
+      // But if it does exist, it returns methods
+      print('Firebase email check exception: ${e.code} - ${e.message}');
+      if (e.code == 'invalid-email') {
+        // Invalid email format, treat as doesn't exist
+        return false;
+      }
+      // Other errors, assume doesn't exist to allow registration
+      return false;
+    } catch (e) {
+      // If there's an error, assume email doesn't exist to allow registration
+      print('Firebase email check error: $e');
+      return false;
+    }
+  }
+
   // Handle Firebase Auth Exceptions
   String _handleAuthException(FirebaseAuthException e) {
     switch (e.code) {

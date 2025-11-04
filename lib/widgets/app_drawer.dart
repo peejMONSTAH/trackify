@@ -1,10 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:awesome_dialog/awesome_dialog.dart';
 import '../services/auth_service.dart';
 import '../services/user_profile_service.dart';
 import '../services/database_helper.dart';
 import '../utils/constants.dart';
-import '../screens/login_screen.dart';
+import '../screens/settings_screen.dart';
+import '../screens/expense_calendar_screen.dart';
+import '../screens/spending_limit_screen.dart';
 
 class AppDrawer extends StatefulWidget {
   final String userId;
@@ -19,7 +21,7 @@ class AppDrawer extends StatefulWidget {
 class _AppDrawerState extends State<AppDrawer> {
   String? _userName;
   String? _userEmail;
-  String? _userPhone;
+  String? _profileImagePath;
   double _totalExpenses = 0.0;
   double _monthlyExpenses = 0.0;
   int _expensesCount = 0;
@@ -40,11 +42,13 @@ class _AppDrawerState extends State<AppDrawer> {
     // Load user profile
     final profile = await UserProfileService.getUserProfile();
     _userName = profile['name'];
-    _userPhone = profile['phone'];
 
     // Get user email from Firebase Auth
     final user = _authService.currentUser;
     _userEmail = user?.email ?? 'No email';
+
+    // Load profile image (per-user)
+    _profileImagePath = await UserProfileService.getProfileImagePath(user?.uid);
 
     // Load statistics
     _totalExpenses = await _dbHelper.getTotalExpenses(widget.userId);
@@ -64,93 +68,109 @@ class _AppDrawerState extends State<AppDrawer> {
     }
   }
 
-  Future<void> _showAboutDialog(BuildContext dialogContext) async {
-    AwesomeDialog(
-      context: dialogContext,
-      dialogType: DialogType.info,
-      animType: AnimType.scale,
-      title: 'About Trackify',
-      desc:
-          'Trackify v1.0.0\n\nA comprehensive expense tracking app built with Flutter.\n\nFeatures:\n• Firebase Authentication\n• Local SQFLite Database\n• Category Management\n• Expense Analytics\n\nDeveloped for ITCC 116',
-      btnOkOnPress: () {},
-      btnOkText: 'OK',
-      btnOkColor: Colors.deepPurple[600]!,
-      dismissOnTouchOutside: true,
-      dismissOnBackKeyPress: true,
-    ).show();
-  }
-
-  Future<void> _showHelpDialog(BuildContext dialogContext) async {
-    AwesomeDialog(
-      context: dialogContext,
-      dialogType: DialogType.info,
-      animType: AnimType.scale,
-      title: 'Help & Tips',
-      desc:
-          'How to use Trackify:\n\n1. Tap the + button to add a new expense\n2. Fill in all required fields\n3. Select a category\n4. Tap Edit icon to modify expenses\n5. Tap Delete icon to remove expenses\n6. View statistics in the drawer\n7. Expenses are stored locally on your device',
-      btnOkOnPress: () {},
-      btnOkText: 'Got it!',
-      btnOkColor: Colors.deepPurple[600]!,
-      dismissOnTouchOutside: true,
-      dismissOnBackKeyPress: true,
-    ).show();
-  }
-
-  Future<void> _logout(BuildContext dialogContext) async {
-    AwesomeDialog(
-      context: dialogContext,
-      dialogType: DialogType.warning,
-      animType: AnimType.scale,
-      title: 'Logout',
-      desc: 'Are you sure you want to logout?',
-      btnCancelOnPress: () {},
-      btnCancelText: 'Cancel',
-      btnOkOnPress: () async {
-        // Close the dialog first
-        Navigator.of(dialogContext).pop();
-
-        // Clear data
-        await UserProfileService.clearUserProfile();
-        await _authService.signOut();
-
-        // Navigate to login
-        if (!mounted) return;
-        Navigator.of(dialogContext).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
-        );
-      },
-      btnOkText: 'Logout',
-      btnOkColor: Colors.orange,
-      dismissOnTouchOutside: true,
-      dismissOnBackKeyPress: true,
-    ).show();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Drawer(
       child: Column(
         children: [
-          // User Info Header
-          UserAccountsDrawerHeader(
+          // User Info Header - Enhanced Design
+          Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.deepPurple[600]!, Colors.deepPurple[400]!],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Constants.primaryBlue,
+                  Constants.primaryBlueLight,
+                  Constants.accentGreen,
+                ],
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Constants.primaryBlue.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            accountName: Text(
-              _userName ?? 'User',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            accountEmail: Text(_userEmail ?? 'No email'),
-            currentAccountPicture: CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Icon(
-                Icons.person,
-                size: 40,
-                color: Colors.deepPurple[600],
-              ),
+            padding: const EdgeInsets.fromLTRB(20, 50, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 32,
+                        backgroundColor: Colors.white,
+                        backgroundImage:
+                            _profileImagePath != null &&
+                                File(_profileImagePath!).existsSync()
+                            ? FileImage(File(_profileImagePath!))
+                            : null,
+                        child:
+                            _profileImagePath == null ||
+                                !File(_profileImagePath!).existsSync()
+                            ? Icon(
+                                Icons.person,
+                                size: 36,
+                                color: Constants.primaryBlue,
+                              )
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _userName ?? 'User',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.email,
+                                size: 14,
+                                color: Colors.white70,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  _userEmail ?? 'No email',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
 
@@ -161,53 +181,109 @@ class _AppDrawerState extends State<AppDrawer> {
                 : ListView(
                     padding: EdgeInsets.zero,
                     children: [
-                      // Quick Stats
-                      const Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: Text(
-                          'Statistics',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.deepPurple,
-                          ),
+                      // Quick Stats - Enhanced Header
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Constants.primaryBlue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.bar_chart,
+                                color: Constants.primaryBlue,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Statistics',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Constants.primaryBlue,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
 
-                      _buildStatCard(
-                        'Total Expenses',
-                        '₱${_totalExpenses.toStringAsFixed(2)}',
-                        Icons.account_balance_wallet,
-                        Colors.deepPurple,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildStatCard(
+                                'Total Expenses',
+                                '₱${_totalExpenses.toStringAsFixed(2)}',
+                                Icons.account_balance_wallet,
+                                Constants.primaryBlue,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-
-                      _buildStatCard(
-                        'This Month',
-                        '₱${_monthlyExpenses.toStringAsFixed(2)}',
-                        Icons.calendar_month,
-                        Colors.blue,
-                      ),
-
-                      _buildStatCard(
-                        'Total Items',
-                        _expensesCount.toString(),
-                        Icons.receipt_long,
-                        Colors.green,
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildStatCard(
+                                'This Month',
+                                '₱${_monthlyExpenses.toStringAsFixed(2)}',
+                                Icons.calendar_month,
+                                Colors.blue,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildStatCard(
+                                'Total Items',
+                                _expensesCount.toString(),
+                                Icons.receipt_long,
+                                Colors.green,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
 
                       const Divider(),
 
-                      // Category Breakdown
+                      // Category Breakdown - Enhanced Header
                       if (_categoryTotals.isNotEmpty) ...[
-                        const Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Text(
-                            'Category Breakdown',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.deepPurple,
-                            ),
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.category,
+                                  color: Colors.orange,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Category Breakdown',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Constants.primaryBlue,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
 
@@ -242,87 +318,187 @@ class _AppDrawerState extends State<AppDrawer> {
                           );
                         }).toList(),
 
-                        const Divider(),
+                        const SizedBox(height: 8),
                       ],
 
-                      // User Info
-                      ListTile(
-                        leading: const Icon(
-                          Icons.person,
-                          color: Colors.deepPurple,
+                      // Menu Section Header
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.menu,
+                                color: Colors.grey,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Menu',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Constants.primaryBlue,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
                         ),
-                        title: const Text('Profile'),
-                        subtitle: Text(_userPhone ?? 'No phone'),
-                        onTap: () {
-                          Navigator.pop(context); // Close drawer
-                          AwesomeDialog(
-                            context: context,
-                            dialogType: DialogType.info,
-                            animType: AnimType.scale,
-                            title: 'Profile Information',
-                            desc:
-                                'Name: ${_userName ?? "Not set"}\nEmail: ${_userEmail ?? "Not set"}\nPhone: ${_userPhone ?? "Not set"}',
-                            btnOkOnPress: () {},
-                            btnOkText: 'OK',
-                            btnOkColor: Colors.deepPurple[600]!,
-                            dismissOnTouchOutside: true,
-                            dismissOnBackKeyPress: true,
-                            btnOkIcon: Icons.check,
-                          ).show();
-                        },
                       ),
 
-                      ListTile(
-                        leading: const Icon(
-                          Icons.help_outline,
-                          color: Colors.blue,
+                      // Expense Calendar Menu Item
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0,
+                          vertical: 4.0,
                         ),
-                        title: const Text('Help & Tips'),
-                        onTap: () {
-                          Navigator.pop(context); // Close drawer
-                          _showHelpDialog(context);
-                        },
+                        child: Card(
+                          elevation: 1,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ListTile(
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.calendar_month,
+                                color: Colors.teal,
+                                size: 24,
+                              ),
+                            ),
+                            title: const Text(
+                              'Expense Calendar',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                            ),
+                            subtitle: const Text('View expenses by date'),
+                            trailing: const Icon(
+                              Icons.chevron_right,
+                              color: Colors.grey,
+                            ),
+                            onTap: () {
+                              Navigator.pop(context); // Close drawer
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ExpenseCalendarScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                       ),
 
-                      ListTile(
-                        leading: const Icon(
-                          Icons.info_outline,
-                          color: Colors.teal,
+                      // Spending Limit Menu Item
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0,
+                          vertical: 4.0,
                         ),
-                        title: const Text('About'),
-                        onTap: () {
-                          Navigator.pop(context); // Close drawer
-                          _showAboutDialog(context);
-                        },
+                        child: Card(
+                          elevation: 1,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ListTile(
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.account_balance_wallet,
+                                color: Colors.green,
+                                size: 24,
+                              ),
+                            ),
+                            title: const Text(
+                              'Spending Limit',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                            ),
+                            subtitle: const Text('Set daily, weekly, or monthly limits'),
+                            trailing: const Icon(
+                              Icons.chevron_right,
+                              color: Colors.grey,
+                            ),
+                            onTap: () {
+                              Navigator.pop(context); // Close drawer
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const SpendingLimitScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                       ),
 
-                      ListTile(
-                        leading: const Icon(
-                          Icons.refresh,
-                          color: Colors.orange,
+                      // Settings Menu Item
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0,
+                          vertical: 4.0,
                         ),
-                        title: const Text('Refresh Data'),
-                        onTap: () {
-                          Navigator.pop(context); // Close drawer
-                          _loadData();
-                          widget.onRefresh();
-                        },
+                        child: Card(
+                          elevation: 1,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ListTile(
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Constants.primaryBlue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.settings,
+                                color: Constants.primaryBlue,
+                                size: 24,
+                              ),
+                            ),
+                            title: const Text(
+                              'Settings',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                            ),
+                            subtitle: const Text('Profile, logout, and more'),
+                            trailing: const Icon(
+                              Icons.chevron_right,
+                              color: Colors.grey,
+                            ),
+                            onTap: () {
+                              Navigator.pop(context); // Close drawer
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const SettingsScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                       ),
+
+                      const SizedBox(height: 16),
                     ],
                   ),
-          ),
-
-          // Logout Button
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text(
-              'Logout',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
-            onTap: () {
-              Navigator.pop(context); // Close drawer
-              _logout(context);
-            },
           ),
         ],
       ),
@@ -336,23 +512,62 @@ class _AppDrawerState extends State<AppDrawer> {
     Color color,
   ) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.2),
-          child: Icon(icon, color: color),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(fontSize: 14, color: Colors.grey),
-        ),
-        trailing: Text(
-          value,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: color,
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        height: 140, // Fixed height to prevent expansion
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
           ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                const Spacer(),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[700],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                  maxLines: 1,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 
 class Constants {
+  // Trackify Brand Colors (matching logo)
+  static const Color primaryBlue = Color(0xFF1E40AF); // Deep vibrant blue
+  static const Color primaryBlueLight = Color(0xFF3B82F6); // Lighter blue variant
+  static const Color primaryBlueDark = Color(0xFF1E3A8A); // Darker blue variant
+  static const Color accentGreen = Color(0xFF84CC16); // Vibrant lime green
+  static const Color accentGreenLight = Color(0xFFA3E635); // Lighter lime green
+  static const Color accentGreenDark = Color(0xFF65A30D); // Darker lime green
+
   static const List<String> categories = [
     'Food',
     'Transport',
